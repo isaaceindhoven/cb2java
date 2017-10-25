@@ -20,7 +20,10 @@ package net.sf.cb2java.copybook;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import net.sf.cb2java.Settings;
 import net.sf.cb2java.Values;
@@ -32,23 +35,29 @@ import net.sf.cb2java.types.SignPosition;
 
 /**
  * Represents a copybook data definition in memory
- * 
+ *
  * <p>acts as a Group element but as a special parent
  * being the copybook itself
- * 
+ *
  * @author James Watson
  */
 public class Copybook extends Group implements Settings
 {
-    private String encoding = Settings.DEFAULT.getEncoding();
-    private boolean littleEndian = Settings.DEFAULT.getLittleEndian();
-    private String floatConversion = Settings.DEFAULT.getFloatConversion();
-    private SignPosition signPosition = Settings.DEFAULT.getSignPosition();
-    
     private Map<String, Redefine> redefines = new HashMap<>();
 
+    private final Settings settings;
     private final Values values;
-    
+
+
+    Copybook(String name, Values values, Settings settings)
+    {
+        super(name, 0, 0);
+        this.settings = settings;
+
+        this.values = values;
+        this.values.setEncoding(settings.getEncoding());
+    }
+
     /**
      * constructor
      *
@@ -56,21 +65,19 @@ public class Copybook extends Group implements Settings
      */
     Copybook(String name, Values values)
     {
-        super(name, 0, 0);
-        
-        this.values = values;
-        this.values.setEncoding(encoding);
+        this(name, values, Settings.DEFAULT);
     }
-    
+
+    @Override
     public Values getValues()
     {
         return values;
     }
-    
+
     /**
      * redefined an element.  This behavior is partial, untested and
      * not officially supported (yet)
-     * 
+     *
      * @param redefinition the redefinition (FOO REDEFINES BAR)
      * @param element the (more specific) element that replaces BAR
      */
@@ -79,11 +86,11 @@ public class Copybook extends Group implements Settings
         Redefine redefine = new Redefine(redefinition.getFoo(), redefinition.getBar(), element);
         redefines.put(redefinition.getFoo(), redefine);
     }
-    
+
     /**
      * Gets an aliased element. This behavior is partial, untested and
      * not officially supported (yet)
-     * 
+     *
      * @param name Name of the redefinition (the FOO in FOO redefines BAR).
      * @return The (typically more specific) element specifying another interpretation of the same data.
      */
@@ -104,17 +111,17 @@ public class Copybook extends Group implements Settings
 
     /**
      * creates a new empty application data instance
-     * 
+     *
      * @return a new empty application data instance
      */
     public Record createNew()
     {
         return new Record((GroupData) super.create());
     }
-    
+
     /**
      * creates a new application data element with the given data
-     * 
+     *
      * @param data the data to create the instance for
      * @return a new application data element with the given data
      * @throws IOException because
@@ -123,83 +130,61 @@ public class Copybook extends Group implements Settings
     {
         return new Record((GroupData) parse(data));
     }
-    
+
     public List<Record> parseData(InputStream stream) throws IOException
     {
-        ByteBuffer buffer = new ByteBuffer(stream);        
-        List<Record> list = new ArrayList<Record>();
-        
+        ByteBuffer buffer = new ByteBuffer(stream);
+        List<Record> list = new ArrayList<>();
+
         while (buffer.hasNext()) {
             list.add(new Record((GroupData) parse(buffer.getNext())));
         }
-        
+
         return list;
     }
-    
-    /**
-     * Sets the encoding for the copybook instance, used for parsing
-     * and writing of data
-     * 
-     * @param encoding the encoding for the system
-     */
-    public void setEncoding(String encoding)
-    {
-        this.encoding = encoding;
-    }
-    
+
     /**
      * retrieves the current encoding for text
-     * 
+     *
      * @return the encoding for text
      */
-    public String getEncoding()
+    @Override
+	public String getEncoding()
     {
-        return encoding;
+        return settings.getEncoding();
     }
-    
-    public void setLittleEndian(boolean littleEndian)
+
+    @Override
+	public boolean getLittleEndian()
     {
-        this.littleEndian = littleEndian;
+        return settings.getLittleEndian();
     }
-    
-    public boolean getLittleEndian()
+
+    @Override
+	public String getFloatConversion()
     {
-        return littleEndian;
+        return settings.getFloatConversion();
     }
-    
-    public void setFloatConversion(String className)
+
+    @Override
+	public SignPosition getSignPosition()
     {
-        this.floatConversion = className;
+        return settings.getSignPosition();
     }
-    
-    public String getFloatConversion()
-    {
-        return floatConversion;
-    }
-    
-    public void setSignPosition(SignPosition position)
-    {
-        this.signPosition = position;
-    }
-    
-    public SignPosition getSignPosition()
-    {
-        return signPosition;
-    }
-    
+
 	@Override
 	public int getColumnStart() {
-		return Settings.DEFAULT.getColumnStart();
+		return settings.getColumnStart();
 	}
 
 	@Override
 	public int getColumnEnd() {
-		return Settings.DEFAULT.getColumnEnd();
+		return settings.getColumnEnd();
 	}
 
 	/**
      * a helper class for buffering the data as it is processed
-     * 
+     *
      * @author James Watson
      */
     public class ByteBuffer
@@ -209,71 +194,71 @@ public class Copybook extends Group implements Settings
         private byte[] internal = new byte[1024];
         private int size = 0;
         private final InputStream stream;
-        
+
         public ByteBuffer(InputStream stream) throws IOException
         {
             this.stream = stream;
         }
-        
+
         private boolean getMore()
         {
             try {
                 byte[] array = new byte[1024];
                 int read = 0;
-                
+
                 while ((read = stream.read(array)) >= 0) {
                     add(array, read);
-                    
+
                     if (read >= getLength()) return true;
                 }
-                
+
                 return read >= getLength();
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         }
-        
+
         public void add(byte[] bytes, int length)
         {
             int space = internal.length - size;
-            
+
             if (space < bytes.length) {
                 byte[] temp = new byte[Math.min(internal.length * 2, internal.length + bytes.length)];
                 System.arraycopy(internal, 0, temp, 0, size);
                 internal = temp;
             }
-            
+
             System.arraycopy(bytes, size, internal, size, length);
-            
+
             size += length;
         }
-        
+
         public boolean hasNext()
         {
             return (position < size) || getMore();
         }
-        
+
         private int nextEnd()
         {
             if (!hasNext()) return -1;
-            
+
             int next = position + getLength();
-            
+
             return next > size ? size : next;
         }
-        
+
         public byte[] getNext()
         {
             byte[] bytes = new byte[size];
-            
+
             int end = nextEnd();
-            
+
 //            System.out.println("next end: " + end);
 //            System.out.println("position: " + position);
-            
+
             System.arraycopy(internal, position, bytes, 0, end - position);
             position = end;
-            
+
             return bytes;
         }
     }

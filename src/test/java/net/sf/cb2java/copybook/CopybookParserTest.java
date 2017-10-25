@@ -4,10 +4,12 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+
 import junit.framework.TestCase;
 import net.sf.cb2java.data.Data;
 import net.sf.cb2java.data.IntegerData;
@@ -18,7 +20,7 @@ import net.sf.cb2java.data.Record;
  * @author devstopfix
  */
 public class CopybookParserTest extends TestCase {
-    
+
     public CopybookParserTest(String testName) {
         super(testName);
     }
@@ -27,12 +29,13 @@ public class CopybookParserTest extends TestCase {
      * Take a copybook and parse it.
      *
      * @throws FileNotFoundException
+     * @throws UnsupportedEncodingException
      */
-    public void testWeCanParseCopybook() throws FileNotFoundException {
+    public void testWeCanParseCopybook() throws FileNotFoundException, UnsupportedEncodingException {
         Copybook copybook = CopybookParser.parse("A", new FileInputStream(new File("./target/test-classes/a.copybook")));
         assertEquals(55, copybook.getLength());
     }
-    
+
     /**
      * Parse copybook data.
      *
@@ -46,19 +49,19 @@ public class CopybookParserTest extends TestCase {
         Record record = results.get(0);
         Data root = record.getChild("ROOT");
         assertEquals("ABCDEF", root.getChildren().get(0).toString());
-        assertEquals("B", ((Data)root.getChildren().get(1)).getName().toString());
+        assertEquals("B", root.getChildren().get(1).getName().toString());
         assertEquals("BCDE", root.getChildren().get(1).toString());
-        
+
         Data dat = root.getChildren().get(2);
         assertTrue(dat instanceof IntegerData);
         assertEquals(12345, ((IntegerData)dat).getInt());
-        
+
         dat = root.getChildren().get(3);
         assertTrue(dat instanceof IntegerData);
         assertEquals(1234, ((IntegerData)dat).getInt());
         //System.out.println(root.toString());
     }
-    
+
     /**
      * Parse copybook data to a Map.
      *
@@ -71,45 +74,45 @@ public class CopybookParserTest extends TestCase {
         assertEquals(1, record.size());
         assertTrue(record.containsKey("ROOT"));
         @SuppressWarnings("unchecked") Map<String,Object> root = (Map<String,Object>)record.get("ROOT");
-        
+
         assertTrue(root.containsKey("A"));
         assertEquals("ABCDEF", root.get("A"));
-        
+
         assertTrue(root.containsKey("B"));
         assertEquals("BCDE", root.get("B"));
-        
+
         assertTrue(root.containsKey("C"));
         assertEquals(12345, ((BigInteger)root.get("C")).intValue());
-        
+
         assertTrue(root.containsKey("D"));
         assertEquals(1234, ((BigInteger)root.get("D")).intValue());
     }
-    
+
     @SuppressWarnings("unchecked")
     public void testRightTrimOfPICXfields() throws FileNotFoundException, IOException {
         Copybook copybook = CopybookParser.parse("B", new FileInputStream(new File("./target/test-classes/b.copybook")));
         List<Record> results = copybook.parseData(new FileInputStream(new File("./target/test-classes/b.input.txt")));
         Map<String,Object>record = results.get(0).toMap();
         Map<String,Object> root = (Map<String,Object>)record.get("ROOT");
-        
+
         assertTrue(root.containsKey("SUB"));
         List<Map<String,Object>> sub = (List<Map<String,Object>>)root.get("SUB");
         assertEquals(2, sub.size());
-        
+
         Map<String,Object> subEl = sub.get(0);
         assertTrue(subEl.containsKey("E"));
         assertEquals(" E", subEl.get("E"));
         assertTrue(subEl.containsKey("F"));
         assertEquals("FF", subEl.get("F"));
-        
+
         subEl = sub.get(1);
         assertTrue(subEl.containsKey("E"));
         assertEquals("EEE", subEl.get("E"));
         assertTrue(subEl.containsKey("F"));
         assertEquals("FFF", subEl.get("F"));
     }
-    
-    @SuppressWarnings("unchecked") 
+
+    @SuppressWarnings("unchecked")
     public void testOccursAsList() throws FileNotFoundException, IOException {
         Copybook copybook = CopybookParser.parse("B", new FileInputStream(new File("./target/test-classes/b.copybook")));
         assertEquals(31, copybook.getLength());
@@ -122,5 +125,5 @@ public class CopybookParserTest extends TestCase {
         assertEquals("[{E= E, F=FF}, {E=EEE, F=FFF}]", Arrays.toString(sub.toArray()));
         assertEquals("{ROOT={A=ABCDEF, B=BCDE, C=12345, D=1234, SUB=[{E= E, F=FF}, {E=EEE, F=FFF}]}}", record.toString());
     }
-    
+
 }

@@ -22,6 +22,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.StringTokenizer;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import net.sf.cb2java.Settings;
 import net.sf.cb2java.Values;
 import net.sf.cb2java.types.Element;
 import net.sf.cb2java.types.Group;
@@ -68,8 +72,6 @@ import net.sf.cb2xml.sablecc.node.TSpaces;
 import net.sf.cb2xml.sablecc.node.TZeros;
 import net.sf.cb2xml.sablecc.node.Token;
 import net.sf.cb2xml.sablecc.parser.Parser;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * This class handles the hard part of the parsing work.
@@ -83,6 +85,7 @@ class CopybookAnalyzer extends DepthFirstAdapter {
     private static final Logger logger = LoggerFactory.getLogger(CopybookAnalyzer.class);
     final Values values = new Values();
 
+    private final Settings settings;
     private Parser parser;
     private Item document;
     private Item current;
@@ -94,11 +97,12 @@ class CopybookAnalyzer extends DepthFirstAdapter {
      * @param copyBookName the name to give this copybook
      * @param parser       sablecc parser instance
      */
-    CopybookAnalyzer(String copyBookName, Parser parser) {
-        document = new Item(values, true);
+    CopybookAnalyzer(String copyBookName, Parser parser, Settings settings) {
+        document = new Item(values, true, settings);
         document.name = copyBookName;
         current = document;
         this.parser = parser;
+        this.settings = settings;
     }
 
     /**
@@ -111,14 +115,16 @@ class CopybookAnalyzer extends DepthFirstAdapter {
     /**
      * enter copybook, set up XML DOM and root element
      */
-    public void inARecordDescription(ARecordDescription node) {
+    @Override
+	public void inARecordDescription(ARecordDescription node) {
         // TODO begin
     }
 
     /**
      * exit root element, save XML as file
      */
-    public void outARecordDescription(ARecordDescription node) {
+    @Override
+	public void outARecordDescription(ARecordDescription node) {
         walkTree(document);
     }
 
@@ -142,11 +148,13 @@ class CopybookAnalyzer extends DepthFirstAdapter {
     /**
      * check for comments before these Tokens and add to XML
      */
-    public void caseTNumberNot88(TNumberNot88 node) {
+    @Override
+	public void caseTNumberNot88(TNumberNot88 node) {
         checkForComments(node);
     }
 
-    public void caseTNumber88(TNumber88 node) {
+    @Override
+	public void caseTNumber88(TNumber88 node) {
         checkForComments(node);
     }
 
@@ -167,9 +175,10 @@ class CopybookAnalyzer extends DepthFirstAdapter {
      * main elementary item
      * enter item, set up Item object
      */
-    public void inAItem(AItem node) {
+    @Override
+	public void inAItem(AItem node) {
         Item prevItem = current;
-        current = new Item(values, false);
+        current = new Item(values, false, null);
         current.level = Integer.parseInt(node.getNumberNot88().toString().trim());
         current.name = node.getDataNameOrFiller().toString().trim();
 
@@ -181,11 +190,13 @@ class CopybookAnalyzer extends DepthFirstAdapter {
     /**
      * end of parsing the element?
      */
-    public void outAItem(AItem node) {
+    @Override
+	public void outAItem(AItem node) {
         current.createElement();
     }
 
-    public void inARedefinesClause(ARedefinesClause node) {
+    @Override
+	public void inARedefinesClause(ARedefinesClause node) {
         if (logger.isDebugEnabled()) {
             logger.debug(
                     String.format("inARedefinesClause node = %s node.parent.dataname = '%s'",
@@ -199,20 +210,24 @@ class CopybookAnalyzer extends DepthFirstAdapter {
         current.redefines = new Redefinition(dataName, node.getDataName().getText().trim());
     }
 
-    public void inAFixedOccursFixedOrVariable(AFixedOccursFixedOrVariable node) {
+    @Override
+	public void inAFixedOccursFixedOrVariable(AFixedOccursFixedOrVariable node) {
         current.occurs = Integer.parseInt(node.getNumber().toString().trim());
     }
 
-    public void inAVariableOccursFixedOrVariable(AVariableOccursFixedOrVariable node) {
+    @Override
+	public void inAVariableOccursFixedOrVariable(AVariableOccursFixedOrVariable node) {
         current.occurs = Integer.parseInt(node.getNumber().toString().trim());
         current.dependsOn = node.getDataName().getText();
     }
 
-    public void inAOccursTo(AOccursTo node) {
+    @Override
+	public void inAOccursTo(AOccursTo node) {
         current.minOccurs = Integer.parseInt(node.getNumber().toString().trim());
     }
 
-    public void inAPictureClause(APictureClause node) {
+    @Override
+	public void inAPictureClause(APictureClause node) {
         current.picture = removeChars(node.getCharacterString()
                 .toString().toUpperCase(), " ");
 
@@ -252,13 +267,15 @@ class CopybookAnalyzer extends DepthFirstAdapter {
         }
     }
 
-    public void inASignClause(ASignClause node) {
+    @Override
+	public void inASignClause(ASignClause node) {
         if (node.getSeparateCharacter() != null) {
             current.signSeparate = true;
         }
     }
 
-    public void inALeadingLeadingOrTrailing(ALeadingLeadingOrTrailing node) {
+    @Override
+	public void inALeadingLeadingOrTrailing(ALeadingLeadingOrTrailing node) {
         current.signPosition = SignPosition.LEADING;
     }
 
@@ -268,102 +285,126 @@ class CopybookAnalyzer extends DepthFirstAdapter {
 
     //======================= USAGE CLAUSE ==========================
 
-    public void inABinaryUsagePhrase(ABinaryUsagePhrase node) {
+    @Override
+	public void inABinaryUsagePhrase(ABinaryUsagePhrase node) {
         current.usage = Usage.BINARY;
     }
 
-    public void inACompUsagePhrase(ACompUsagePhrase node) {
+    @Override
+	public void inACompUsagePhrase(ACompUsagePhrase node) {
         current.usage = Usage.COMPUTATIONAL;
     }
 
-    public void inAComp1UsagePhrase(AComp1UsagePhrase node) {
+    @Override
+	public void inAComp1UsagePhrase(AComp1UsagePhrase node) {
         current.usage = Usage.COMPUTATIONAL_1;
     }
 
-    public void inAComp2UsagePhrase(AComp2UsagePhrase node) {
+    @Override
+	public void inAComp2UsagePhrase(AComp2UsagePhrase node) {
         current.usage = Usage.COMPUTATIONAL_2;
     }
 
-    public void inAComp3UsagePhrase(AComp3UsagePhrase node) {
+    @Override
+	public void inAComp3UsagePhrase(AComp3UsagePhrase node) {
         current.usage = Usage.COMPUTATIONAL_3;
     }
 
-    public void inAComp4UsagePhrase(AComp4UsagePhrase node) {
+    @Override
+	public void inAComp4UsagePhrase(AComp4UsagePhrase node) {
         current.usage = Usage.COMPUTATIONAL_4;
     }
 
-    public void inAComp5UsagePhrase(AComp5UsagePhrase node) {
+    @Override
+	public void inAComp5UsagePhrase(AComp5UsagePhrase node) {
         current.usage = Usage.COMPUTATIONAL_5;
     }
 
-    public void inADisplay1UsagePhrase(ADisplay1UsagePhrase node) {
+    @Override
+	public void inADisplay1UsagePhrase(ADisplay1UsagePhrase node) {
         throw new IllegalArgumentException("display-1");
     }
 
-    public void inAIndexUsagePhrase(AIndexUsagePhrase node) {
+    @Override
+	public void inAIndexUsagePhrase(AIndexUsagePhrase node) {
         throw new IllegalArgumentException("index");
     }
 
-    public void inANationalUsagePhrase(ANationalUsagePhrase node) {
+    @Override
+	public void inANationalUsagePhrase(ANationalUsagePhrase node) {
         throw new IllegalArgumentException("national");
     }
 
-    public void inAObjectReferencePhrase(AObjectReferencePhrase node) {
+    @Override
+	public void inAObjectReferencePhrase(AObjectReferencePhrase node) {
         throw new IllegalArgumentException("object-reference");//, node.getDataName().getText());
     }
 
-    public void inAPackedDecimalUsagePhrase(APackedDecimalUsagePhrase node) {
+    @Override
+	public void inAPackedDecimalUsagePhrase(APackedDecimalUsagePhrase node) {
         current.usage = Usage.PACKED_DECIMAL;
     }
 
-    public void inAPointerUsagePhrase(APointerUsagePhrase node) {
+    @Override
+	public void inAPointerUsagePhrase(APointerUsagePhrase node) {
         throw new IllegalArgumentException("pointer");
     }
 
-    public void inAProcedurePointerUsagePhrase(AProcedurePointerUsagePhrase node) {
+    @Override
+	public void inAProcedurePointerUsagePhrase(AProcedurePointerUsagePhrase node) {
         throw new IllegalArgumentException("procedure-pointer");
     }
 
-    public void inAFunctionPointerUsagePhrase(AFunctionPointerUsagePhrase node) {
+    @Override
+	public void inAFunctionPointerUsagePhrase(AFunctionPointerUsagePhrase node) {
         throw new IllegalArgumentException("function-pointer");
     }
 
     //	======================= 88 / VALUE CLAUSE ==========================
 
-    public void caseTZeros(TZeros node) {
+    @Override
+	public void caseTZeros(TZeros node) {
         current.value = values.ZEROES;
     }
 
-    public void caseTSpaces(TSpaces node) {
+    @Override
+	public void caseTSpaces(TSpaces node) {
         current.value = values.SPACES;
     }
 
-    public void caseTHighValues(THighValues node) {
+    @Override
+	public void caseTHighValues(THighValues node) {
         current.value = values.HIGH_VALUES;
     }
 
-    public void caseTLowValues(TLowValues node) {
+    @Override
+	public void caseTLowValues(TLowValues node) {
         current.value = values.LOW_VALUES;
     }
 
-    public void caseTQuotes(TQuotes node) {
+    @Override
+	public void caseTQuotes(TQuotes node) {
         current.value = values.QUOTES;
     }
 
-    public void caseTNulls(TNulls node) {
+    @Override
+	public void caseTNulls(TNulls node) {
         current.value = values.NULLS;
     }
 
-    public void caseTAlphanumericLiteral(TAlphanumericLiteral node) {
+    @Override
+	public void caseTAlphanumericLiteral(TAlphanumericLiteral node) {
         current.value = values.new Literal(node.getText());
     }
 
-    public void outAValueClause(AValueClause node) {
+    @Override
+	public void outAValueClause(AValueClause node) {
         current.value = values.new Literal(node.getLiteral().toString().trim());
     }
 
     // 88 LEVEL CONDITION NODE
-    public void inAValueItem(AValueItem node) {
+    @Override
+	public void inAValueItem(AValueItem node) {
         String name = node.getDataName().getText();
         if (logger.isDebugEnabled()) {
             logger.debug(String.format("Current: "+ current.name));
@@ -379,7 +420,8 @@ class CopybookAnalyzer extends DepthFirstAdapter {
 //        throw new IllegalArgumentException("'a value item' not yet supported");
     }
 
-    public void outASingleLiteralSequence(ASingleLiteralSequence node) {
+    @Override
+	public void outASingleLiteralSequence(ASingleLiteralSequence node) {
 //		if (node.getAll() != null) {
 //			curItem.element.setAttribute("all", "true");
 //		}
@@ -389,14 +431,16 @@ class CopybookAnalyzer extends DepthFirstAdapter {
 //        throw new IllegalArgumentException("'a single literal sequence' not yet supported");
     }
 
-    public void outASequenceLiteralSequence(ASequenceLiteralSequence node) {
+    @Override
+	public void outASequenceLiteralSequence(ASequenceLiteralSequence node) {
 //		Element element = document.createElement("condition");
 //		element.setAttribute("value", node.getLiteral().toString().trim());
 //		curItem.element.appendChild(element);
         throw new IllegalArgumentException("'a sequence literal sequence' not yet supported");
     }
 
-    public void outAThroughSingleLiteralSequence(AThroughSingleLiteralSequence node) {
+    @Override
+	public void outAThroughSingleLiteralSequence(AThroughSingleLiteralSequence node) {
 //		Element element = document.createElement("condition");
 //		element.setAttribute("value", node.getFrom().toString().trim());
 //		element.setAttribute("through", node.getTo().toString().trim());
@@ -404,11 +448,12 @@ class CopybookAnalyzer extends DepthFirstAdapter {
         throw new IllegalArgumentException("'a through single literal sequence' not yet supported");
     }
 
-    public void outAThroughSequenceLiteralSequence(AThroughSequenceLiteralSequence node) {
+    @Override
+	public void outAThroughSequenceLiteralSequence(AThroughSequenceLiteralSequence node) {
 //		Element element = document.createElement("condition");
 //		element.setAttribute("value", node.getFrom().toString().trim());
 //		element.setAttribute("through", node.getTo().toString().trim());
-//		curItem.element.appendChild(element);	
+//		curItem.element.appendChild(element);
         throw new IllegalArgumentException("'a through sequence literal sequence' not yet supported");
     }
 
@@ -435,7 +480,7 @@ class CopybookAnalyzer extends DepthFirstAdapter {
         List<Element> children = document.getElement().getChildren();
 
         for (Iterator<Element> i = children.iterator(); i.hasNext(); ) {
-            Element testElement = (Element) i.next();
+            Element testElement = i.next();
             if (testElement.getName().equals(name)) {
                 return testElement.getPosition();
             }

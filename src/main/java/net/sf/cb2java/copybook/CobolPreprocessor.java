@@ -30,20 +30,19 @@ import net.sf.cb2java.Settings;
  * are retained as these are required by the main parser. COBOL files typically
  * contain some junk characters and comment indicators in the "margins" and this
  * routine removes those.
- * 
+ *
  * @author Peter Thomas
  */
-public class CobolPreprocessor {
+public final class CobolPreprocessor {
 
 	private CobolPreprocessor() {
 	}
 
-	public static String preProcess(Reader reader) {
-    	// TODO: figure out a way to pass copybook specific settings for non-default margins treated as comment.
-		int columnStart = Settings.DEFAULT.getColumnStart();
-		int columnEnd = Settings.DEFAULT.getColumnEnd();
+	public static String preProcess(Reader reader, Settings settings) {
+		final int columnStart = settings.getColumnStart();
+		final int columnEnd = settings.getColumnEnd();
 
-		StringBuffer sb = new StringBuffer();
+		StringBuilder sb = new StringBuilder();
 
 		try (BufferedReader buffer = new BufferedReader(reader)) {
 			String s = null;

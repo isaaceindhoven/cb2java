@@ -24,7 +24,9 @@ import java.io.InputStreamReader;
 import java.io.PushbackReader;
 import java.io.Reader;
 import java.io.StringReader;
+import java.io.UnsupportedEncodingException;
 
+import net.sf.cb2java.Settings;
 import net.sf.cb2xml.sablecc.lexer.Lexer;
 import net.sf.cb2xml.sablecc.lexer.LexerException;
 import net.sf.cb2xml.sablecc.node.Start;
@@ -32,11 +34,11 @@ import net.sf.cb2xml.sablecc.parser.Parser;
 import net.sf.cb2xml.sablecc.parser.ParserException;
 
 /**
- * 
+ *
  * This class is the starting point for parsing copybooks
- * 
+ *
  * <p>To parse or create data, you need to first parse the
- * copybook.  The returned CopyBook instance will allow for 
+ * copybook.  The returned CopyBook instance will allow for
  * working with data.
  *
  * @author James Watson
@@ -50,47 +52,73 @@ public class CopybookParser
     private static final boolean DEBUG = System.getProperty("cb2java.debug", "false").equals("true");
     /**
      * Parses a copybook definition and returns a Copybook instance
-     * 
+     *
      * @param name the name of the copybook.  For future use.
      * @param stream the copybook definition's source stream
-     * 
+     *
      * @return a copybook instance containing the parse tree for the definition
+     * @throws UnsupportedEncodingException
      */
-    public static Copybook parse(String name, InputStream stream)
-    {        
-        return parse(name, new InputStreamReader(stream));
+    public static Copybook parse(String name, InputStream stream) throws UnsupportedEncodingException
+    {
+        return parse(name, stream, Settings.DEFAULT);
     }
-    
     /**
      * Parses a copybook definition and returns a Copybook instance
-     * 
+     *
+     * @param name the name of the copybook.  For future use.
+     * @param stream the copybook definition's source stream
+     * @param settings the settings to use
+     *
+     * @return a copybook instance containing the parse tree for the definition
+     * @throws UnsupportedEncodingException
+     */
+    public static Copybook parse(String name, InputStream stream, Settings settings) throws UnsupportedEncodingException
+    {
+        return parse(name, new InputStreamReader(stream, settings.getEncoding()), settings);
+    }
+
+    /**
+     * Parses a copybook definition and returns a Copybook instance
+     *
      * @param name the name of the copybook.  For future use.
      * @param reader the copybook definition's source reader
-     * 
+     *
      * @return a copybook instance containing the parse tree for the definition
      */
-    public static Copybook parse(String name, Reader reader)
-    {        
-        String preProcessed = CobolPreprocessor.preProcess(reader);
+    public static Copybook parse(String name, Reader reader) {
+        return parse(name, reader, Settings.DEFAULT);
+    }
+    /**
+     * Parses a copybook definition and returns a Copybook instance
+     *
+     * @param name the name of the copybook.  For future use.
+     * @param reader the copybook definition's source reader
+     *
+     * @return a copybook instance containing the parse tree for the definition
+     */
+    public static Copybook parse(String name, Reader reader, Settings settings)
+    {
+        String preProcessed = CobolPreprocessor.preProcess(reader, settings);
         StringReader sr = new StringReader(preProcessed);
         PushbackReader pbr = new PushbackReader(sr, 1000);
-        
+
         Lexer lexer = DEBUG ? new DebugLexer(pbr) : new Lexer(pbr);
-        
+
         Parser parser = new Parser(lexer);
-        CopybookAnalyzer copyBookAnalyzer = new CopybookAnalyzer(name, parser);
+        CopybookAnalyzer copyBookAnalyzer = new CopybookAnalyzer(name, parser, settings);
         Start ast;
         try {
 			ast = parser.parse();
         } catch (ParserException | LexerException | IOException e) {
             throw new RuntimeException("fatal parse error\n"
-                + (lexer instanceof DebugLexer 
+                + (lexer instanceof DebugLexer
                 ? "=== buffer dump start ===\n"
                 + ((DebugLexer) lexer).getBuffer()
                 + "\n=== buffer dump end ===" : ""), e);
         }
         ast.apply(copyBookAnalyzer);
-        
+
         return copyBookAnalyzer.getDocument();
     }
 }

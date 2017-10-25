@@ -39,19 +39,23 @@ import net.sf.cb2java.types.SignedSeparate;
  * our internal representation of a copybook "item" node
  */
 class Item {
+	private final Settings settings;
     final boolean document;
 
     final Values values;
 
     final List<String> literals = new ArrayList<>();
 
+
     /**
      * @param values values object.
      * @param document if this is the document document.
+     * @param settings required if document is true
      */
-    Item(final Values values, final boolean document) {
+    Item(final Values values, final boolean document, final Settings settings) {
         this.values = values;
         this.document = document;
+        this.settings = settings;
     }
 
     String name;
@@ -59,7 +63,7 @@ class Item {
     Item parent;
     int length;
 
-    List<Item> children = new ArrayList<Item>();
+    List<Item> children = new ArrayList<>();
 
     Redefinition redefines;
 
@@ -135,7 +139,7 @@ class Item {
     }
 
     private void createDocument() {
-        element = new Copybook(name, values);
+        element = new Copybook(name, values, settings);
     }
 
     private void createGroup() {
