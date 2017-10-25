@@ -21,6 +21,7 @@ package net.sf.cb2java;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
+
 import net.sf.cb2java.types.SignPosition;
 
 public interface Settings {
@@ -64,6 +65,7 @@ public interface Settings {
 			}
 
 			DEFAULT_ENCODING = getSetting("encoding", System.getProperty("file.encoding"), props);
+			// FIXME This doesn't seem right, when you specify little-endian == false, then the property is set to true?
 			DEFAULT_LITTLE_ENDIAN = "false".equals(getSetting("little-endian", "false", props));
 			DEFAULT_FLOAT_CONVERSION = getSetting("float-conversion", "net.sf.cb2java.copybook.floating.IEEE754",
 					props);
@@ -83,30 +85,37 @@ public interface Settings {
 			return result;
 		}
 
+		@Override
 		public String getEncoding() {
 			return DEFAULT_ENCODING;
 		}
 
+		@Override
 		public String getFloatConversion() {
 			return DEFAULT_FLOAT_CONVERSION;
 		}
 
+		@Override
 		public boolean getLittleEndian() {
 			return DEFAULT_LITTLE_ENDIAN;
 		}
 
+		@Override
 		public Values getValues() {
 			return DEFAULT_VALUES;
 		}
 
+		@Override
 		public SignPosition getSignPosition() {
 			return DEFAULT_SIGN_POSITION;
 		}
 
+		@Override
 		public int getColumnStart() {
 			return DEFAULT_COLUMN_START;
 		}
 
+		@Override
 		public int getColumnEnd() {
 			return DEFAULT_COLUMN_END;
 		}
