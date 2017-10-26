@@ -56,6 +56,12 @@ class Item {
         this.values = values;
         this.document = document;
         this.settings = settings;
+
+        if (settings != null) {
+            signPosition = settings.getSignPosition();
+        } else {
+            signPosition = Settings.DEFAULT.getSignPosition();
+        }
     }
 
     String name;
@@ -73,7 +79,7 @@ class Item {
 
     boolean isAlpha;
     boolean signSeparate;
-    SignPosition signPosition = Settings.DEFAULT.getSignPosition();
+    SignPosition signPosition;
 
     String picture;
     Value value;
